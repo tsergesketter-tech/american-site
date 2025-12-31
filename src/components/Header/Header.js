@@ -1,10 +1,37 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const Header = () => {
   const [showHolidayBanner, setShowHolidayBanner] = useState(true);
+  const [showDisclaimer, setShowDisclaimer] = useState(true);
 
   return (
     <header>
+      {/* Salesforce Demo Disclaimer */}
+      {showDisclaimer && (
+        <div className="bg-aa-blue text-white border-b border-blue-800">
+          <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              <p className="text-sm">
+                <span className="font-semibold">Salesforce Marketing Cloud Demo Site</span> - This is not the official American Airlines website. This site is for demonstration purposes only.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowDisclaimer(false)}
+              className="text-white hover:text-gray-200 ml-4"
+              aria-label="Close disclaimer"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Holiday Travel Banner */}
       {showHolidayBanner && (
         <div className="bg-aa-light-gray border-b border-gray-300">
@@ -54,7 +81,7 @@ const Header = () => {
             {/* Logo and Main Nav */}
             <div className="flex items-center gap-8">
               {/* Logo */}
-              <div className="flex items-center gap-3">
+              <Link to="/" className="flex items-center gap-3 cursor-pointer">
                 <img
                   src="/logos/logo-american-short-header.png"
                   alt="American Airlines"
@@ -65,7 +92,7 @@ const Header = () => {
                   alt="oneworld alliance"
                   className="h-8"
                 />
-              </div>
+              </Link>
 
               {/* Main Navigation */}
               <nav className="hidden md:flex items-center gap-6">

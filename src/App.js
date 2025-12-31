@@ -10,6 +10,8 @@ import FlightResults from './pages/FlightResults';
 import SeatSelection from './pages/SeatSelection';
 import Checkout from './pages/Checkout';
 import Confirmation from './pages/Confirmation';
+import AAdvantageCitiCard from './pages/CreditCards/AAdvantageCitiCard';
+import AAdvantageBusinessCard from './pages/CreditCards/AAdvantageBusinessCard';
 
 function App() {
   return (
@@ -29,6 +31,8 @@ function App() {
             <Route path="/flights/seats" element={<SeatSelection />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/confirmation" element={<Confirmation />} />
+            <Route path="/credit-cards/aadvantage-citi" element={<AAdvantageCitiCard />} />
+            <Route path="/credit-cards/business" element={<AAdvantageBusinessCard />} />
           </Routes>
           <Footer />
         </div>

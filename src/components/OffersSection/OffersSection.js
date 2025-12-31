@@ -1,23 +1,24 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const OffersSection = () => {
   // Placeholder offers - these will be replaced with Marketing Cloud Personalization recommendations
   const offers = [
     {
       id: 1,
-      title: 'Make waves in 2026',
-      description: "Next year's hottest cruises are still available. Book now and earn AAdvantage® miles on every sailing.",
-      image: 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=500&fit=crop',
-      linkText: 'Search sailing dates',
-      linkUrl: '#'
+      title: 'Earn up to 90,000 bonus miles',
+      description: 'The new Citi® / AAdvantage® Globe™ card is here. Get 60,000 bonus miles after $3,000 spend, plus more.',
+      image: 'https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=800&h=500&fit=crop',
+      linkText: 'Learn more about this card',
+      linkUrl: '/credit-cards/aadvantage-citi'
     },
     {
       id: 2,
-      title: 'Slam dunk moments',
-      description: 'Cheer for your favorite team — earn or use AAdvantage® miles on AAdvantage Events™ tickets',
-      image: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&h=500&fit=crop',
-      linkText: 'Search games and buy tickets',
-      linkUrl: '#'
+      title: 'Business travel, elevated',
+      description: 'CitiBusiness® / AAdvantage® Platinum Select® card. Earn up to 75,000 bonus miles on business expenses.',
+      image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=800&h=500&fit=crop',
+      linkText: 'Explore business card benefits',
+      linkUrl: '/credit-cards/business'
     },
     {
       id: 3,
@@ -61,15 +62,27 @@ const OffersSection = () => {
                 <p className="text-gray-600 mb-4 leading-relaxed">
                   {offer.description}
                 </p>
-                <a
-                  href={offer.linkUrl}
-                  className="text-aa-light-blue hover:underline font-medium flex items-center gap-1"
-                >
-                  {offer.linkText}
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
+{offer.linkUrl.startsWith('/') ? (
+                  <Link
+                    to={offer.linkUrl}
+                    className="text-aa-light-blue hover:underline font-medium flex items-center gap-1"
+                  >
+                    {offer.linkText}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </Link>
+                ) : (
+                  <a
+                    href={offer.linkUrl}
+                    className="text-aa-light-blue hover:underline font-medium flex items-center gap-1"
+                  >
+                    {offer.linkText}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                )}
               </div>
             </div>
           ))}

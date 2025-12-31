@@ -7,6 +7,25 @@ const BookingWidget = () => {
   const navigate = useNavigate();
   const { updateSearchParams } = useBooking();
 
+  // Airport options for American Airlines
+  const airports = [
+    { code: 'DFW', city: 'Dallas/Fort Worth', name: 'Dallas/Fort Worth (DFW)' },
+    { code: 'ORD', city: 'Chicago', name: 'Chicago O\'Hare (ORD)' },
+    { code: 'MIA', city: 'Miami', name: 'Miami (MIA)' },
+    { code: 'LAX', city: 'Los Angeles', name: 'Los Angeles (LAX)' },
+    { code: 'JFK', city: 'New York', name: 'New York JFK (JFK)' },
+    { code: 'PHX', city: 'Phoenix', name: 'Phoenix (PHX)' },
+    { code: 'CLT', city: 'Charlotte', name: 'Charlotte (CLT)' },
+    { code: 'IND', city: 'Indianapolis', name: 'Indianapolis (IND)' },
+    { code: 'BOS', city: 'Boston', name: 'Boston (BOS)' },
+    { code: 'DCA', city: 'Washington DC', name: 'Washington Reagan (DCA)' },
+    { code: 'SFO', city: 'San Francisco', name: 'San Francisco (SFO)' },
+    { code: 'SEA', city: 'Seattle', name: 'Seattle (SEA)' },
+    { code: 'LAS', city: 'Las Vegas', name: 'Las Vegas (LAS)' },
+    { code: 'MCO', city: 'Orlando', name: 'Orlando (MCO)' },
+    { code: 'ATL', city: 'Atlanta', name: 'Atlanta (ATL)' }
+  ];
+
   const [activeTab, setActiveTab] = useState('book');
   const [tripType, setTripType] = useState('roundTrip');
   const [bookingType, setBookingType] = useState('flight');
@@ -183,18 +202,17 @@ const BookingWidget = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       From
                     </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={from}
-                        onChange={(e) => setFrom(e.target.value)}
-                        placeholder="IND"
-                        className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-aa-light-blue"
-                      />
-                      <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </div>
+                    <select
+                      value={from}
+                      onChange={(e) => setFrom(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-aa-light-blue appearance-none bg-white"
+                    >
+                      {airports.map(airport => (
+                        <option key={airport.code} value={airport.code}>
+                          {airport.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* To */}
@@ -202,18 +220,17 @@ const BookingWidget = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       To
                     </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={to}
-                        onChange={(e) => setTo(e.target.value)}
-                        placeholder="City or airport"
-                        className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-aa-light-blue"
-                      />
-                      <svg className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </div>
+                    <select
+                      value={to}
+                      onChange={(e) => setTo(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-aa-light-blue appearance-none bg-white"
+                    >
+                      {airports.map(airport => (
+                        <option key={airport.code} value={airport.code}>
+                          {airport.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Number of Passengers */}

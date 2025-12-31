@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 
 const Hero = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -74,12 +75,24 @@ const Hero = () => {
                 </h1>
 
                 {/* Subtitle */}
-                <p className="text-white text-xl mb-6 flex items-center gap-2">
-                  {slide.subtitle}
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </p>
+                {index === 0 ? (
+                  <Link
+                    to="/credit-cards/aadvantage-citi"
+                    className="text-white text-xl mb-6 flex items-center gap-2 hover:underline cursor-pointer inline-flex"
+                  >
+                    {slide.subtitle}
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </Link>
+                ) : (
+                  <p className="text-white text-xl mb-6 flex items-center gap-2">
+                    {slide.subtitle}
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </p>
+                )}
 
                 {/* Terms */}
                 <p className="text-white text-sm opacity-80">Terms apply</p>
