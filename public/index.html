@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#00205B" />
+    <meta
+      name="description"
+      content="American Airlines - Book flights, check-in, and manage your travel"
+    />
+    <title>American Airlines - Book flights</title>
+
+    <!-- Salesforce Interactions SDK -->
+    <!--
+      IMPORTANT: Replace the script src below with your actual Salesforce Interactions SDK URL
+      You can get this from Marketing Cloud Personalization > Settings > Website Connector
+      Example: https://cdn.evgnet.com/beacon/[YOUR_ACCOUNT]/scripts/evergage.min.js
+    -->
+    <script type="text/javascript">
+      // Placeholder for Salesforce Interactions SDK
+      // In production, this would load from: https://cdn.evgnet.com/beacon/[ACCOUNT]/scripts/evergage.min.js
+
+      // For demo purposes, we'll create a mock SDK object
+      window.SalesforceInteractions = {
+        init: function(config) {
+          console.log('Salesforce SDK init (DEMO MODE):', config);
+          return Promise.resolve();
+        },
+        sendEvent: function(event) {
+          console.log('Salesforce SDK sendEvent (DEMO MODE):', event);
+        },
+        initSitemap: function(config) {
+          console.log('Salesforce SDK initSitemap (DEMO MODE):', config);
+        },
+        listener: function(type, selector, handler) {
+          console.log('Salesforce SDK listener (DEMO MODE):', type, selector);
+          return { type, selector, handler };
+        },
+        mcis: {
+          ConsentPurpose: {
+            Personalization: 'Personalization'
+          }
+        },
+        ConsentStatus: {
+          OptIn: 'OptIn'
+        }
+      };
+      console.log('%c🎯 Salesforce Interactions SDK loaded (DEMO MODE)', 'color: #00A1E0; font-weight: bold;');
+      console.log('%cℹ️  All tracking events will be logged to console for demo purposes', 'color: #666;');
+    </script>
+
+    <!-- Salesforce Sitemap Configuration -->
+    <script type="text/javascript" src="%PUBLIC_URL%/salesforce/sitemap.js" defer></script>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
