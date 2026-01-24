@@ -3,7 +3,7 @@
  * Publishes Platform Events to Salesforce using gRPC
  */
 
-const PubSubApiClient = require('salesforce-pubsub-api-client');
+const PubSubApiClient = require('salesforce-pubsub-api-client').default;
 
 class SalesforcePubSubService {
   constructor() {
