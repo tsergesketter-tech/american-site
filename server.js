@@ -97,6 +97,8 @@ app.post('/api/events/search', async (req, res) => {
 /**
  * Publish flight booking event
  * POST /api/events/booking
+ *
+ * Publishes directly to Salesforce (for logging) and optionally to Kafka
  */
 app.post('/api/events/booking', async (req, res) => {
   try {
@@ -115,12 +117,26 @@ app.post('/api/events/booking', async (req, res) => {
       timestamp: new Date().toISOString()
     };
 
-    await kafkaService.publish(TOPICS.FLIGHT_BOOKINGS, bookingData, bookingData.bookingReference);
+    // Publish directly to Salesforce (logs to admin dashboard)
+    let sfResult = null;
+    try {
+      sfResult = await salesforcePubSub.publishBookingEvent(bookingData);
+    } catch (sfError) {
+      console.error('Salesforce publish error:', sfError.message);
+    }
+
+    // Also publish to Kafka (for worker processing if needed)
+    try {
+      await kafkaService.publish(TOPICS.FLIGHT_BOOKINGS, bookingData, bookingData.bookingReference);
+    } catch (kafkaError) {
+      console.error('Kafka publish error:', kafkaError.message);
+    }
 
     res.json({
       success: true,
       message: 'Booking event published',
-      bookingReference: bookingData.bookingReference
+      bookingReference: bookingData.bookingReference,
+      salesforce: sfResult
     });
   } catch (error) {
     console.error('Failed to publish booking event:', error);
@@ -533,16 +549,25 @@ app.get('*', (req, res) => {
 
 const port = process.env.PORT || 3000;
 
-// Initialize Kafka on startup
+// Initialize services on startup
 async function startServer() {
   try {
     // Initialize Kafka (don't connect producer until first publish)
     kafkaService.initialize();
     console.log('[Server] Kafka initialized');
 
+    // Connect to Salesforce for direct publishing
+    try {
+      await salesforcePubSub.connect();
+      console.log('[Server] Salesforce PubSub connected');
+    } catch (sfError) {
+      console.error('[Server] Salesforce connection failed (will retry on first publish):', sfError.message);
+    }
+
     app.listen(port, () => {
       console.log(`[Server] Server is running on port ${port}`);
       console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`[Server] Salesforce PubSub enabled: ${salesforcePubSub.isEnabled()}`);
     });
   } catch (error) {
     console.error('[Server] Failed to start:', error);
@@ -554,6 +579,7 @@ async function startServer() {
 process.on('SIGTERM', async () => {
   console.log('[Server] SIGTERM received, shutting down...');
   await kafkaService.disconnect();
+  await salesforcePubSub.disconnect();
   process.exit(0);
 });
 
