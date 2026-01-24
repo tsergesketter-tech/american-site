@@ -48,6 +48,18 @@ async function test() {
     });
     console.log('Search Result:', searchResult);
 
+    // Test abandoned cart event
+    console.log('\n3. Testing Abandoned Cart Event...');
+    const cartResult = await salesforcePubSub.publishAbandonedCartEvent({
+      sessionId: 'cart_' + Date.now(),
+      userEmail: 'abandoner@test.com',
+      flightDetails: { flight: 'AA123', price: 450 },
+      cartTotal: 450,
+      timeOnPage: 120,
+      pageUrl: '/checkout'
+    });
+    console.log('Cart Result:', cartResult);
+
     await salesforcePubSub.disconnect();
     console.log('\n=== All Tests Passed ===');
 

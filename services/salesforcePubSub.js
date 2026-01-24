@@ -1,7 +1,11 @@
 /**
  * Salesforce Pub/Sub API Service
- * Publishes Platform Events to Salesforce
- * Uses REST API for publishing (more reliable) and gRPC for subscribing
+ * Publishes Platform Events to Salesforce using gRPC Pub/Sub API
+ *
+ * The Avro schema for Platform Events requires:
+ *   - CreatedDate (long) - REQUIRED - timestamp in milliseconds
+ *   - CreatedById (string) - REQUIRED - Salesforce User ID
+ *   - Custom fields use union types like ["null", "string"] with format { string: "value" }
  */
 
 const PubSubApiClient = require('salesforce-pubsub-api-client').default;
@@ -12,6 +16,48 @@ class SalesforcePubSubService {
     this.isConnected = false;
     this.accessToken = null;
     this.instanceUrl = null;
+    this.userId = null;  // Cache the user ID for CreatedById field
+    this.useGrpc = process.env.SALESFORCE_USE_GRPC !== 'false';  // Default to gRPC
+
+    // Global kill switch - defaults to DISABLED for safety
+    this.enabled = process.env.SALESFORCE_PUBSUB_ENABLED === 'true';
+  }
+
+  /**
+   * Check if the service is enabled
+   */
+  isEnabled() {
+    return this.enabled;
+  }
+
+  /**
+   * Enable the service (runtime toggle)
+   */
+  enable() {
+    this.enabled = true;
+    console.log('[SF PubSub] Service ENABLED');
+    return { enabled: true };
+  }
+
+  /**
+   * Disable the service (runtime toggle)
+   */
+  disable() {
+    this.enabled = false;
+    console.log('[SF PubSub] Service DISABLED');
+    return { enabled: false };
+  }
+
+  /**
+   * Get service status
+   */
+  getStatus() {
+    return {
+      enabled: this.enabled,
+      connected: this.isConnected,
+      useGrpc: this.useGrpc,
+      userId: this.userId
+    };
   }
 
   /**
@@ -24,10 +70,11 @@ class SalesforcePubSubService {
     }
 
     try {
-      // Get OAuth token for REST API
+      // Get OAuth token and user info
       await this.refreshToken();
+      await this.fetchUserId();
 
-      // Also connect Pub/Sub client for subscribing
+      // Connect Pub/Sub client for gRPC operations
       this.client = new PubSubApiClient({
         authType: 'oauth-client-credentials',
         loginUrl: process.env.SALESFORCE_LOGIN_URL,
@@ -37,7 +84,7 @@ class SalesforcePubSubService {
 
       await this.client.connect();
       this.isConnected = true;
-      console.log('[SF PubSub] Connected to Salesforce Pub/Sub API');
+      console.log('[SF PubSub] Connected to Salesforce Pub/Sub API (gRPC mode:', this.useGrpc, ')');
     } catch (error) {
       console.error('[SF PubSub] Connection failed:', error.message);
       throw error;
@@ -45,7 +92,7 @@ class SalesforcePubSubService {
   }
 
   /**
-   * Refresh OAuth token for REST API calls
+   * Refresh OAuth token
    */
   async refreshToken() {
     const params = new URLSearchParams({
@@ -71,9 +118,61 @@ class SalesforcePubSubService {
   }
 
   /**
-   * Publish Platform Event via REST API
+   * Fetch the current user ID for CreatedById field (required by Avro schema)
    */
-  async publishEvent(eventApiName, payload) {
+  async fetchUserId() {
+    if (this.userId) return this.userId;
+
+    const response = await fetch(`${this.instanceUrl}/services/oauth2/userinfo`, {
+      headers: { 'Authorization': `Bearer ${this.accessToken}` }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user info: ${response.status}`);
+    }
+
+    const data = await response.json();
+    this.userId = data.user_id;
+    console.log('[SF PubSub] User ID cached:', this.userId);
+    return this.userId;
+  }
+
+  /**
+   * Wrap a value in Avro union format for nullable fields
+   * For ["null", "string"] unions, use { string: "value" } or null
+   */
+  wrapUnion(value, type = 'string') {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    return { [type]: value };
+  }
+
+  /**
+   * Publish Platform Event via gRPC Pub/Sub API
+   */
+  async publishEventGrpc(topicName, payload) {
+    if (!this.isConnected) {
+      await this.connect();
+    }
+
+    try {
+      const result = await this.client.publish(topicName, payload);
+      return {
+        success: true,
+        replayId: result.replayId,
+        correlationKey: result.correlationKey
+      };
+    } catch (error) {
+      console.error('[SF PubSub] gRPC publish error:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Publish Platform Event via REST API (fallback)
+   */
+  async publishEventRest(eventApiName, payload) {
     if (!this.accessToken) {
       await this.refreshToken();
     }
@@ -92,10 +191,9 @@ class SalesforcePubSubService {
     const result = await response.json();
 
     if (!response.ok) {
-      // Token might be expired, try refreshing
       if (response.status === 401) {
         await this.refreshToken();
-        return this.publishEvent(eventApiName, payload);
+        return this.publishEventRest(eventApiName, payload);
       }
       console.error('[SF PubSub] REST API error:', result);
       throw new Error(`Failed to publish event: ${JSON.stringify(result)}`);
@@ -108,32 +206,73 @@ class SalesforcePubSubService {
    * Publish a Flight Booking Platform Event
    */
   async publishBookingEvent(bookingData) {
-    const payload = {
-      Booking_Reference__c: bookingData.bookingReference || 'UNKNOWN',
-      Passenger_Name__c: bookingData.passengerName || 'Unknown',
-      Passenger_Email__c: bookingData.passengerEmail || 'unknown@example.com',
-      Flight_Number__c: bookingData.flightNumber || 'AA0000',
-      Origin__c: bookingData.origin || 'XXX',
-      Destination__c: bookingData.destination || 'XXX',
-      Departure_Date__c: bookingData.departureDate || new Date().toISOString().split('T')[0],
-      Cabin_Class__c: bookingData.cabinClass || null,
-      Total_Amount__c: bookingData.totalAmount || null,
-      Seat_Numbers__c: bookingData.seatNumbers || null,
-      Booking_Status__c: bookingData.status || 'Confirmed'
-    };
+    if (!this.enabled) {
+      console.log('[SF PubSub] Service disabled - skipping booking event');
+      return { success: false, reason: 'Service disabled' };
+    }
 
-    try {
-      console.log('[SF PubSub] Publishing booking event via REST API');
-      const result = await this.publishEvent('Flight_Booking__e', payload);
-      console.log('[SF PubSub] Booking event published:', {
-        id: result.id,
-        success: result.success,
-        bookingReference: bookingData.bookingReference
-      });
-      return result;
-    } catch (error) {
-      console.error('[SF PubSub] Failed to publish booking event:', error.message);
-      throw error;
+    if (this.useGrpc) {
+      // gRPC Pub/Sub API with Avro encoding
+      const payload = {
+        // Required fields
+        CreatedDate: Date.now(),
+        CreatedById: this.userId,
+        // Nullable union fields
+        Booking_Reference__c: this.wrapUnion(bookingData.bookingReference || 'UNKNOWN'),
+        Passenger_Name__c: this.wrapUnion(bookingData.passengerName || 'Unknown'),
+        Passenger_Email__c: this.wrapUnion(bookingData.passengerEmail || 'unknown@example.com'),
+        Flight_Number__c: this.wrapUnion(bookingData.flightNumber || 'AA0000'),
+        Origin__c: this.wrapUnion(bookingData.origin || 'XXX'),
+        Destination__c: this.wrapUnion(bookingData.destination || 'XXX'),
+        Departure_Date__c: this.wrapUnion(bookingData.departureDate || new Date().toISOString().split('T')[0]),
+        Cabin_Class__c: this.wrapUnion(bookingData.cabinClass),
+        Total_Amount__c: this.wrapUnion(bookingData.totalAmount, 'double'),
+        Seat_Numbers__c: this.wrapUnion(bookingData.seatNumbers),
+        Booking_Status__c: this.wrapUnion(bookingData.status || 'Confirmed')
+      };
+
+      try {
+        console.log('[SF PubSub] Publishing booking event via gRPC Pub/Sub API');
+        const result = await this.publishEventGrpc('/event/Flight_Booking__e', payload);
+        console.log('[SF PubSub] Booking event published:', {
+          replayId: result.replayId,
+          success: result.success,
+          bookingReference: bookingData.bookingReference
+        });
+        return result;
+      } catch (error) {
+        console.error('[SF PubSub] Failed to publish booking event:', error.message);
+        throw error;
+      }
+    } else {
+      // REST API fallback
+      const payload = {
+        Booking_Reference__c: bookingData.bookingReference || 'UNKNOWN',
+        Passenger_Name__c: bookingData.passengerName || 'Unknown',
+        Passenger_Email__c: bookingData.passengerEmail || 'unknown@example.com',
+        Flight_Number__c: bookingData.flightNumber || 'AA0000',
+        Origin__c: bookingData.origin || 'XXX',
+        Destination__c: bookingData.destination || 'XXX',
+        Departure_Date__c: bookingData.departureDate || new Date().toISOString().split('T')[0],
+        Cabin_Class__c: bookingData.cabinClass || null,
+        Total_Amount__c: bookingData.totalAmount || null,
+        Seat_Numbers__c: bookingData.seatNumbers || null,
+        Booking_Status__c: bookingData.status || 'Confirmed'
+      };
+
+      try {
+        console.log('[SF PubSub] Publishing booking event via REST API');
+        const result = await this.publishEventRest('Flight_Booking__e', payload);
+        console.log('[SF PubSub] Booking event published:', {
+          id: result.id,
+          success: result.success,
+          bookingReference: bookingData.bookingReference
+        });
+        return result;
+      } catch (error) {
+        console.error('[SF PubSub] Failed to publish booking event:', error.message);
+        throw error;
+      }
     }
   }
 
@@ -141,30 +280,69 @@ class SalesforcePubSubService {
    * Publish a Flight Search Platform Event
    */
   async publishSearchEvent(searchData) {
-    const payload = {
-      Session_Id__c: searchData.sessionId || '',
-      Origin__c: searchData.origin || '',
-      Destination__c: searchData.destination || '',
-      Departure_Date__c: searchData.departureDate || '',
-      Return_Date__c: searchData.returnDate || null,
-      Passengers__c: searchData.passengers || 1,
-      Trip_Type__c: searchData.tripType || '',
-      Cabin_Class__c: searchData.cabinClass || null,
-      User_Email__c: searchData.userEmail || null
-    };
+    if (!this.enabled) {
+      console.log('[SF PubSub] Service disabled - skipping search event');
+      return { success: false, reason: 'Service disabled' };
+    }
 
-    try {
-      console.log('[SF PubSub] Publishing search event via REST API');
-      const result = await this.publishEvent('Flight_Search__e', payload);
-      console.log('[SF PubSub] Search event published:', {
-        id: result.id,
-        success: result.success,
-        sessionId: searchData.sessionId
-      });
-      return result;
-    } catch (error) {
-      console.error('[SF PubSub] Failed to publish search event:', error.message);
-      throw error;
+    if (this.useGrpc) {
+      // gRPC Pub/Sub API with Avro encoding
+      const payload = {
+        // Required fields
+        CreatedDate: Date.now(),
+        CreatedById: this.userId,
+        // Nullable union fields
+        Session_Id__c: this.wrapUnion(searchData.sessionId),
+        Origin__c: this.wrapUnion(searchData.origin),
+        Destination__c: this.wrapUnion(searchData.destination),
+        Departure_Date__c: this.wrapUnion(searchData.departureDate),
+        Return_Date__c: this.wrapUnion(searchData.returnDate),
+        Passengers__c: this.wrapUnion(searchData.passengers, 'double'),
+        Trip_Type__c: this.wrapUnion(searchData.tripType),
+        Cabin_Class__c: this.wrapUnion(searchData.cabinClass),
+        User_Email__c: this.wrapUnion(searchData.userEmail)
+      };
+
+      try {
+        console.log('[SF PubSub] Publishing search event via gRPC Pub/Sub API');
+        const result = await this.publishEventGrpc('/event/Flight_Search__e', payload);
+        console.log('[SF PubSub] Search event published:', {
+          replayId: result.replayId,
+          success: result.success,
+          sessionId: searchData.sessionId
+        });
+        return result;
+      } catch (error) {
+        console.error('[SF PubSub] Failed to publish search event:', error.message);
+        throw error;
+      }
+    } else {
+      // REST API fallback
+      const payload = {
+        Session_Id__c: searchData.sessionId || '',
+        Origin__c: searchData.origin || '',
+        Destination__c: searchData.destination || '',
+        Departure_Date__c: searchData.departureDate || '',
+        Return_Date__c: searchData.returnDate || null,
+        Passengers__c: searchData.passengers || 1,
+        Trip_Type__c: searchData.tripType || '',
+        Cabin_Class__c: searchData.cabinClass || null,
+        User_Email__c: searchData.userEmail || null
+      };
+
+      try {
+        console.log('[SF PubSub] Publishing search event via REST API');
+        const result = await this.publishEventRest('Flight_Search__e', payload);
+        console.log('[SF PubSub] Search event published:', {
+          id: result.id,
+          success: result.success,
+          sessionId: searchData.sessionId
+        });
+        return result;
+      } catch (error) {
+        console.error('[SF PubSub] Failed to publish search event:', error.message);
+        throw error;
+      }
     }
   }
 
@@ -172,27 +350,63 @@ class SalesforcePubSubService {
    * Publish an Abandoned Cart Platform Event
    */
   async publishAbandonedCartEvent(cartData) {
-    const payload = {
-      Session_Id__c: cartData.sessionId || '',
-      User_Email__c: cartData.userEmail || '',
-      Flight_Details__c: JSON.stringify(cartData.flightDetails || {}),
-      Cart_Total__c: cartData.cartTotal || null,
-      Time_On_Page__c: cartData.timeOnPage || null,
-      Page_URL__c: cartData.pageUrl || null
-    };
+    if (!this.enabled) {
+      console.log('[SF PubSub] Service disabled - skipping abandoned cart event');
+      return { success: false, reason: 'Service disabled' };
+    }
 
-    try {
-      console.log('[SF PubSub] Publishing abandoned cart event via REST API');
-      const result = await this.publishEvent('Abandoned_Cart__e', payload);
-      console.log('[SF PubSub] Abandoned cart event published:', {
-        id: result.id,
-        success: result.success,
-        userEmail: cartData.userEmail
-      });
-      return result;
-    } catch (error) {
-      console.error('[SF PubSub] Failed to publish abandoned cart event:', error.message);
-      throw error;
+    if (this.useGrpc) {
+      // gRPC Pub/Sub API with Avro encoding
+      const payload = {
+        // Required fields
+        CreatedDate: Date.now(),
+        CreatedById: this.userId,
+        // Nullable union fields
+        Session_Id__c: this.wrapUnion(cartData.sessionId),
+        User_Email__c: this.wrapUnion(cartData.userEmail),
+        Flight_Details__c: this.wrapUnion(cartData.flightDetails ? JSON.stringify(cartData.flightDetails) : null),
+        Cart_Total__c: this.wrapUnion(cartData.cartTotal, 'double'),
+        Time_On_Page__c: this.wrapUnion(cartData.timeOnPage, 'double'),
+        Page_URL__c: this.wrapUnion(cartData.pageUrl)
+      };
+
+      try {
+        console.log('[SF PubSub] Publishing abandoned cart event via gRPC Pub/Sub API');
+        const result = await this.publishEventGrpc('/event/Abandoned_Cart__e', payload);
+        console.log('[SF PubSub] Abandoned cart event published:', {
+          replayId: result.replayId,
+          success: result.success,
+          userEmail: cartData.userEmail
+        });
+        return result;
+      } catch (error) {
+        console.error('[SF PubSub] Failed to publish abandoned cart event:', error.message);
+        throw error;
+      }
+    } else {
+      // REST API fallback
+      const payload = {
+        Session_Id__c: cartData.sessionId || '',
+        User_Email__c: cartData.userEmail || '',
+        Flight_Details__c: JSON.stringify(cartData.flightDetails || {}),
+        Cart_Total__c: cartData.cartTotal || null,
+        Time_On_Page__c: cartData.timeOnPage || null,
+        Page_URL__c: cartData.pageUrl || null
+      };
+
+      try {
+        console.log('[SF PubSub] Publishing abandoned cart event via REST API');
+        const result = await this.publishEventRest('Abandoned_Cart__e', payload);
+        console.log('[SF PubSub] Abandoned cart event published:', {
+          id: result.id,
+          success: result.success,
+          userEmail: cartData.userEmail
+        });
+        return result;
+      } catch (error) {
+        console.error('[SF PubSub] Failed to publish abandoned cart event:', error.message);
+        throw error;
+      }
     }
   }
 

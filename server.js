@@ -9,8 +9,21 @@ const express = require('express');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { kafkaService, TOPICS } = require('./services/kafkaService');
+const salesforcePubSub = require('./services/salesforcePubSub');
 
 const app = express();
+
+// Admin API key for control panel (set via environment variable)
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'changeme';
+
+// Simple auth middleware for admin routes
+const adminAuth = (req, res, next) => {
+  const apiKey = req.headers['x-admin-key'] || req.query.key;
+  if (apiKey !== ADMIN_API_KEY) {
+    return res.status(401).json({ error: 'Unauthorized - Invalid admin key' });
+  }
+  next();
+};
 
 // Middleware
 app.use(express.json());
@@ -182,6 +195,48 @@ app.post('/api/events/user', async (req, res) => {
       message: error.message
     });
   }
+});
+
+// ============================================
+// Admin Control Panel Routes
+// ============================================
+
+/**
+ * Get Salesforce PubSub service status
+ * GET /api/admin/status
+ */
+app.get('/api/admin/status', adminAuth, (req, res) => {
+  res.json({
+    service: 'salesforce-pubsub',
+    ...salesforcePubSub.getStatus(),
+    kafka: {
+      producerConnected: kafkaService.isProducerConnected
+    }
+  });
+});
+
+/**
+ * Enable Salesforce PubSub service
+ * POST /api/admin/enable
+ */
+app.post('/api/admin/enable', adminAuth, (req, res) => {
+  const result = salesforcePubSub.enable();
+  res.json({
+    message: 'Salesforce PubSub service ENABLED',
+    ...result
+  });
+});
+
+/**
+ * Disable Salesforce PubSub service
+ * POST /api/admin/disable
+ */
+app.post('/api/admin/disable', adminAuth, (req, res) => {
+  const result = salesforcePubSub.disable();
+  res.json({
+    message: 'Salesforce PubSub service DISABLED',
+    ...result
+  });
 });
 
 // ============================================
