@@ -9,6 +9,7 @@
  */
 
 const PubSubApiClient = require('salesforce-pubsub-api-client').default;
+const eventLogger = require('./eventLogger');
 
 class SalesforcePubSubService {
   constructor() {
@@ -206,9 +207,18 @@ class SalesforcePubSubService {
    * Publish a Flight Booking Platform Event
    */
   async publishBookingEvent(bookingData) {
+    // Log the event
+    const eventId = eventLogger.logEvent({
+      type: 'Flight_Booking__e',
+      topic: '/event/Flight_Booking__e',
+      payload: bookingData,
+      source: 'salesforcePubSub'
+    });
+
     if (!this.enabled) {
       console.log('[SF PubSub] Service disabled - skipping booking event');
-      return { success: false, reason: 'Service disabled' };
+      eventLogger.skipEvent(eventId, 'Service disabled');
+      return { success: false, reason: 'Service disabled', eventId };
     }
 
     if (this.useGrpc) {
@@ -234,13 +244,15 @@ class SalesforcePubSubService {
       try {
         console.log('[SF PubSub] Publishing booking event via gRPC Pub/Sub API');
         const result = await this.publishEventGrpc('/event/Flight_Booking__e', payload);
+        eventLogger.updateEvent(eventId, result);
         console.log('[SF PubSub] Booking event published:', {
           replayId: result.replayId,
           success: result.success,
           bookingReference: bookingData.bookingReference
         });
-        return result;
+        return { ...result, eventId };
       } catch (error) {
+        eventLogger.failEvent(eventId, error);
         console.error('[SF PubSub] Failed to publish booking event:', error.message);
         throw error;
       }
@@ -263,13 +275,15 @@ class SalesforcePubSubService {
       try {
         console.log('[SF PubSub] Publishing booking event via REST API');
         const result = await this.publishEventRest('Flight_Booking__e', payload);
+        eventLogger.updateEvent(eventId, { ...result, success: true });
         console.log('[SF PubSub] Booking event published:', {
           id: result.id,
           success: result.success,
           bookingReference: bookingData.bookingReference
         });
-        return result;
+        return { ...result, eventId };
       } catch (error) {
+        eventLogger.failEvent(eventId, error);
         console.error('[SF PubSub] Failed to publish booking event:', error.message);
         throw error;
       }
@@ -280,9 +294,18 @@ class SalesforcePubSubService {
    * Publish a Flight Search Platform Event
    */
   async publishSearchEvent(searchData) {
+    // Log the event
+    const eventId = eventLogger.logEvent({
+      type: 'Flight_Search__e',
+      topic: '/event/Flight_Search__e',
+      payload: searchData,
+      source: 'salesforcePubSub'
+    });
+
     if (!this.enabled) {
       console.log('[SF PubSub] Service disabled - skipping search event');
-      return { success: false, reason: 'Service disabled' };
+      eventLogger.skipEvent(eventId, 'Service disabled');
+      return { success: false, reason: 'Service disabled', eventId };
     }
 
     if (this.useGrpc) {
@@ -306,13 +329,15 @@ class SalesforcePubSubService {
       try {
         console.log('[SF PubSub] Publishing search event via gRPC Pub/Sub API');
         const result = await this.publishEventGrpc('/event/Flight_Search__e', payload);
+        eventLogger.updateEvent(eventId, result);
         console.log('[SF PubSub] Search event published:', {
           replayId: result.replayId,
           success: result.success,
           sessionId: searchData.sessionId
         });
-        return result;
+        return { ...result, eventId };
       } catch (error) {
+        eventLogger.failEvent(eventId, error);
         console.error('[SF PubSub] Failed to publish search event:', error.message);
         throw error;
       }
@@ -333,13 +358,15 @@ class SalesforcePubSubService {
       try {
         console.log('[SF PubSub] Publishing search event via REST API');
         const result = await this.publishEventRest('Flight_Search__e', payload);
+        eventLogger.updateEvent(eventId, { ...result, success: true });
         console.log('[SF PubSub] Search event published:', {
           id: result.id,
           success: result.success,
           sessionId: searchData.sessionId
         });
-        return result;
+        return { ...result, eventId };
       } catch (error) {
+        eventLogger.failEvent(eventId, error);
         console.error('[SF PubSub] Failed to publish search event:', error.message);
         throw error;
       }
@@ -350,9 +377,18 @@ class SalesforcePubSubService {
    * Publish an Abandoned Cart Platform Event
    */
   async publishAbandonedCartEvent(cartData) {
+    // Log the event
+    const eventId = eventLogger.logEvent({
+      type: 'Abandoned_Cart__e',
+      topic: '/event/Abandoned_Cart__e',
+      payload: cartData,
+      source: 'salesforcePubSub'
+    });
+
     if (!this.enabled) {
       console.log('[SF PubSub] Service disabled - skipping abandoned cart event');
-      return { success: false, reason: 'Service disabled' };
+      eventLogger.skipEvent(eventId, 'Service disabled');
+      return { success: false, reason: 'Service disabled', eventId };
     }
 
     if (this.useGrpc) {
@@ -373,13 +409,15 @@ class SalesforcePubSubService {
       try {
         console.log('[SF PubSub] Publishing abandoned cart event via gRPC Pub/Sub API');
         const result = await this.publishEventGrpc('/event/Abandoned_Cart__e', payload);
+        eventLogger.updateEvent(eventId, result);
         console.log('[SF PubSub] Abandoned cart event published:', {
           replayId: result.replayId,
           success: result.success,
           userEmail: cartData.userEmail
         });
-        return result;
+        return { ...result, eventId };
       } catch (error) {
+        eventLogger.failEvent(eventId, error);
         console.error('[SF PubSub] Failed to publish abandoned cart event:', error.message);
         throw error;
       }
@@ -397,13 +435,15 @@ class SalesforcePubSubService {
       try {
         console.log('[SF PubSub] Publishing abandoned cart event via REST API');
         const result = await this.publishEventRest('Abandoned_Cart__e', payload);
+        eventLogger.updateEvent(eventId, { ...result, success: true });
         console.log('[SF PubSub] Abandoned cart event published:', {
           id: result.id,
           success: result.success,
           userEmail: cartData.userEmail
         });
-        return result;
+        return { ...result, eventId };
       } catch (error) {
+        eventLogger.failEvent(eventId, error);
         console.error('[SF PubSub] Failed to publish abandoned cart event:', error.message);
         throw error;
       }
