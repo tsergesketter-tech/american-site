@@ -26,11 +26,14 @@ class EventBridge {
       // Connect to Salesforce first
       await salesforcePubSub.connect();
 
-      // Connect Kafka consumer
-      await kafkaService.connectConsumer('salesforce-bridge');
+      // Initialize Kafka
+      kafkaService.initialize();
 
-      // Subscribe to all relevant topics
-      await this.subscribeToTopics();
+      // Subscribe to all topics FIRST (before starting consumer)
+      await this.subscribeToAllTopics();
+
+      // THEN start the consumer
+      await kafkaService.startConsumer();
 
       this.isRunning = true;
       console.log('[EventBridge] Event bridge started successfully');
@@ -41,11 +44,11 @@ class EventBridge {
   }
 
   /**
-   * Subscribe to Kafka topics and set up message handlers
+   * Subscribe to all Kafka topics with their handlers
    */
-  async subscribeToTopics() {
+  async subscribeToAllTopics() {
     // Handle flight booking events
-    await kafkaService.subscribe(TOPICS.FLIGHT_BOOKINGS, async (message, metadata) => {
+    await kafkaService.addSubscription(TOPICS.FLIGHT_BOOKINGS, async (message, metadata) => {
       console.log('[EventBridge] Processing booking event...');
       try {
         await salesforcePubSub.publishBookingEvent({
@@ -64,12 +67,11 @@ class EventBridge {
         console.log('[EventBridge] Booking event forwarded to Salesforce');
       } catch (error) {
         console.error('[EventBridge] Failed to forward booking event:', error.message);
-        // In production, implement dead letter queue or retry logic
       }
     });
 
     // Handle flight search events
-    await kafkaService.subscribe(TOPICS.FLIGHT_SEARCHES, async (message, metadata) => {
+    await kafkaService.addSubscription(TOPICS.FLIGHT_SEARCHES, async (message, metadata) => {
       console.log('[EventBridge] Processing search event...');
       try {
         await salesforcePubSub.publishSearchEvent({
@@ -90,7 +92,7 @@ class EventBridge {
     });
 
     // Handle abandoned cart events
-    await kafkaService.subscribe(TOPICS.ABANDONED_CARTS, async (message, metadata) => {
+    await kafkaService.addSubscription(TOPICS.ABANDONED_CARTS, async (message, metadata) => {
       console.log('[EventBridge] Processing abandoned cart event...');
       try {
         await salesforcePubSub.publishAbandonedCartEvent({
@@ -107,7 +109,14 @@ class EventBridge {
       }
     });
 
-    console.log('[EventBridge] Subscribed to all topics');
+    // Handle generic user events
+    await kafkaService.addSubscription(TOPICS.USER_EVENTS, async (message, metadata) => {
+      console.log('[EventBridge] Processing user event:', message.eventType);
+      // Generic user events can be logged or processed as needed
+      console.log('[EventBridge] User event data:', JSON.stringify(message.data));
+    });
+
+    console.log('[EventBridge] All topic subscriptions added');
   }
 
   /**

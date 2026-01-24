@@ -5,7 +5,6 @@
 
 const { Kafka, logLevel } = require('kafkajs');
 const fs = require('fs');
-const path = require('path');
 
 class KafkaService {
   constructor() {
@@ -14,6 +13,8 @@ class KafkaService {
     this.consumer = null;
     this.isProducerConnected = false;
     this.isConsumerConnected = false;
+    this.isConsumerRunning = false;
+    this.messageHandlers = new Map(); // topic -> handler
   }
 
   /**
@@ -147,11 +148,15 @@ class KafkaService {
   }
 
   /**
-   * Subscribe to Kafka topic and process messages
+   * Subscribe to a Kafka topic (must be called before startConsumer)
    */
-  async subscribe(topic, messageHandler) {
+  async addSubscription(topic, messageHandler) {
     if (!this.isConsumerConnected) {
-      await this.connectConsumer('american-site-consumer');
+      await this.connectConsumer('salesforce-bridge');
+    }
+
+    if (this.isConsumerRunning) {
+      throw new Error('Cannot add subscription while consumer is running');
     }
 
     const fullTopic = this.getTopicName(topic);
@@ -160,6 +165,19 @@ class KafkaService {
       topic: fullTopic,
       fromBeginning: false
     });
+
+    this.messageHandlers.set(fullTopic, messageHandler);
+    console.log(`[Kafka] Subscribed to topic: ${fullTopic}`);
+  }
+
+  /**
+   * Start the consumer (call after all subscriptions are added)
+   */
+  async startConsumer() {
+    if (this.isConsumerRunning) {
+      console.log('[Kafka] Consumer already running');
+      return;
+    }
 
     await this.consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
@@ -170,21 +188,27 @@ class KafkaService {
           offset: message.offset
         });
 
-        try {
-          const parsedMessage = JSON.parse(value);
-          await messageHandler(parsedMessage, {
-            topic,
-            partition,
-            offset: message.offset,
-            timestamp: message.timestamp
-          });
-        } catch (error) {
-          console.error('[Kafka] Error processing message:', error.message);
+        const handler = this.messageHandlers.get(topic);
+        if (handler) {
+          try {
+            const parsedMessage = JSON.parse(value);
+            await handler(parsedMessage, {
+              topic,
+              partition,
+              offset: message.offset,
+              timestamp: message.timestamp
+            });
+          } catch (error) {
+            console.error('[Kafka] Error processing message:', error.message);
+          }
+        } else {
+          console.warn(`[Kafka] No handler for topic: ${topic}`);
         }
       }
     });
 
-    console.log(`[Kafka] Subscribed to topic: ${fullTopic}`);
+    this.isConsumerRunning = true;
+    console.log('[Kafka] Consumer started');
   }
 
   /**
@@ -200,6 +224,7 @@ class KafkaService {
     if (this.consumer && this.isConsumerConnected) {
       await this.consumer.disconnect();
       this.isConsumerConnected = false;
+      this.isConsumerRunning = false;
       console.log('[Kafka] Consumer disconnected');
     }
   }
