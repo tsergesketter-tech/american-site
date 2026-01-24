@@ -1,20 +1,23 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useBooking } from '../context/BookingContext';
 import { trackPurchase } from '../services/salesforceTracking';
+import { trackBooking } from '../services/eventApi';
 
 const Confirmation = () => {
   const navigate = useNavigate();
   const { selectedFlights, selectedSeats, passengers, clearBooking } = useBooking();
+  const [eventStatus, setEventStatus] = useState({ sent: false, result: null });
 
-  // Generate a random booking reference
-  const bookingReference = `AA${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+  // Generate a random booking reference (memoized to prevent re-generation)
+  const [bookingReference] = useState(() => `AA${Math.random().toString(36).substring(2, 8).toUpperCase()}`);
 
   useEffect(() => {
-    // Track purchase event with Salesforce
+    // Track purchase event with Salesforce Marketing Cloud
     if (selectedFlights.outbound && passengers.length > 0) {
       const total = selectedFlights.outbound.price + (selectedSeats.outbound?.length > 0 ? 35 : 0);
 
+      // Track with Marketing Cloud
       trackPurchase({
         bookingReference,
         total,
@@ -30,8 +33,34 @@ const Confirmation = () => {
           }
         }]
       });
+
+      // Send booking event to Kafka -> Salesforce Platform Events
+      const sendBookingEvent = async () => {
+        try {
+          const result = await trackBooking({
+            bookingReference,
+            firstName: passengers[0]?.firstName,
+            lastName: passengers[0]?.lastName,
+            email: passengers[0]?.email,
+            flightNumber: selectedFlights.outbound.flightNumber,
+            origin: selectedFlights.outbound.origin,
+            destination: selectedFlights.outbound.destination,
+            departureDate: selectedFlights.outbound.departureDate || new Date().toISOString().split('T')[0],
+            cabinClass: selectedFlights.outbound.selectedCabin,
+            totalAmount: total,
+            seatNumbers: selectedSeats.outbound?.join(', ') || '',
+          });
+          setEventStatus({ sent: true, result });
+          console.log('[Confirmation] Booking event sent to Salesforce:', result);
+        } catch (error) {
+          console.error('[Confirmation] Failed to send booking event:', error);
+          setEventStatus({ sent: true, result: { error: error.message } });
+        }
+      };
+
+      sendBookingEvent();
     }
-  }, []);
+  }, [bookingReference, selectedFlights, selectedSeats, passengers]);
 
   const handleNewBooking = () => {
     clearBooking();
@@ -200,7 +229,7 @@ const Confirmation = () => {
         </div>
 
         {/* Marketing Cloud Integration Note */}
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
           <div className="flex items-start gap-3">
             <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -212,6 +241,50 @@ const Confirmation = () => {
               <div className="text-green-800">
                 This confirmation triggers: (1) Purchase event in Salesforce, (2) Booking confirmation email via Journey Builder, (3) Post-flight survey scheduled, (4) Retargeting audience exclusion
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Salesforce Platform Event Status */}
+        <div className={`border rounded-lg p-4 ${eventStatus.sent ? (eventStatus.result?.success ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200') : 'bg-gray-50 border-gray-200'}`}>
+          <div className="flex items-start gap-3">
+            {eventStatus.sent ? (
+              eventStatus.result?.success ? (
+                <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              )
+            ) : (
+              <svg className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            )}
+            <div className="text-sm flex-1">
+              <div className={`font-semibold mb-1 ${eventStatus.sent ? (eventStatus.result?.success ? 'text-blue-900' : 'text-yellow-900') : 'text-gray-700'}`}>
+                Salesforce Platform Event
+              </div>
+              <div className={eventStatus.sent ? (eventStatus.result?.success ? 'text-blue-800' : 'text-yellow-800') : 'text-gray-600'}>
+                {!eventStatus.sent && 'Sending booking event to Salesforce...'}
+                {eventStatus.sent && eventStatus.result?.success && (
+                  <>Flight_Booking__e published successfully via Pub/Sub API</>
+                )}
+                {eventStatus.sent && eventStatus.result?.error && (
+                  <>Event send failed: {eventStatus.result.error}</>
+                )}
+                {eventStatus.sent && eventStatus.result?.reason && (
+                  <>Event skipped: {eventStatus.result.reason}</>
+                )}
+              </div>
+              {eventStatus.result?.bookingReference && (
+                <div className="mt-1 text-xs text-blue-600">
+                  Booking Ref: {eventStatus.result.bookingReference}
+                </div>
+              )}
             </div>
           </div>
         </div>
