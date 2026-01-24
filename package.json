@@ -8,16 +8,25 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "start:prod": "node server.js"
+    "start:prod": "node server.js",
+    "worker": "node worker.js",
+    "dev:server": "node server.js",
+    "test:events": "node scripts/test-events.js",
+    "test:kafka": "node scripts/test-events.js kafka",
+    "test:salesforce": "node scripts/test-events.js salesforce"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "dotenv": "^17.2.3",
     "express": "^4.22.1",
+    "kafkajs": "^2.2.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-router-dom": "^7.11.0"
+    "react-router-dom": "^7.11.0",
+    "salesforce-pubsub-api-client": "^5.5.2",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.23",

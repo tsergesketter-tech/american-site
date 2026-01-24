@@ -1,0 +1,68 @@
+{
+  "name": "American Airlines Clone",
+  "description": "American Airlines booking site clone with Salesforce Marketing Cloud and Kafka integration",
+  "repository": "https://github.com/tsergesketter-tech/american-site",
+  "keywords": ["react", "salesforce", "kafka", "booking"],
+  "env": {
+    "NODE_ENV": {
+      "description": "Environment mode",
+      "value": "production"
+    },
+    "SALESFORCE_LOGIN_URL": {
+      "description": "Salesforce instance URL",
+      "required": true
+    },
+    "SALESFORCE_CLIENT_ID": {
+      "description": "Salesforce Connected App Consumer Key",
+      "required": true
+    },
+    "SALESFORCE_CLIENT_SECRET": {
+      "description": "Salesforce Connected App Consumer Secret",
+      "required": true
+    },
+    "SALESFORCE_USERNAME": {
+      "description": "Salesforce username (optional - for username-password auth)",
+      "required": false
+    },
+    "SALESFORCE_PASSWORD": {
+      "description": "Salesforce password (optional - for username-password auth)",
+      "required": false
+    },
+    "SALESFORCE_TOKEN": {
+      "description": "Salesforce security token (optional - for username-password auth)",
+      "required": false
+    },
+    "SF_BOOKING_EVENT_TOPIC": {
+      "description": "Salesforce Platform Event topic for bookings",
+      "value": "/event/Flight_Booking__e"
+    },
+    "SF_SEARCH_EVENT_TOPIC": {
+      "description": "Salesforce Platform Event topic for searches",
+      "value": "/event/Flight_Search__e"
+    }
+  },
+  "addons": [
+    {
+      "plan": "heroku-kafka:basic-0",
+      "as": "KAFKA"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    },
+    "worker": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "scripts": {
+    "postdeploy": "echo 'Deployment complete. Remember to create Kafka topics and consumer groups.'"
+  }
+}
