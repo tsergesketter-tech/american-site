@@ -348,7 +348,7 @@ function getAdminDashboardHtml() {
     .payload-preview { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85em; color: #888; }
     .filters { display: flex; gap: 10px; margin-bottom: 15px; }
     .filters select { padding: 8px; border-radius: 4px; border: none; background: #16213e; color: #eee; }
-    .hidden { display: none; }
+    .hidden { display: none !important; }
     .modal { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000; }
     .modal-content { background: #16213e; padding: 20px; border-radius: 8px; max-width: 800px; max-height: 80vh; overflow: auto; width: 90%; }
     .modal-content pre { background: #0f3460; padding: 15px; border-radius: 4px; overflow: auto; font-size: 0.85em; }
