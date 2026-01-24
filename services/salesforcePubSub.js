@@ -70,22 +70,24 @@ class SalesforcePubSubService {
 
     const eventTopic = process.env.SF_BOOKING_EVENT_TOPIC || '/event/Flight_Booking__e';
 
+    // Simple payload format - library handles Avro encoding
     const payload = {
-      CreatedDate: new Date().getTime(),
-      Booking_Reference__c: { string: bookingData.bookingReference },
-      Passenger_Name__c: { string: bookingData.passengerName },
-      Passenger_Email__c: { string: bookingData.passengerEmail },
-      Flight_Number__c: { string: bookingData.flightNumber },
-      Origin__c: { string: bookingData.origin },
-      Destination__c: { string: bookingData.destination },
-      Departure_Date__c: { string: bookingData.departureDate },
-      Cabin_Class__c: { string: bookingData.cabinClass },
-      Total_Amount__c: { double: bookingData.totalAmount },
-      Seat_Numbers__c: { string: bookingData.seatNumbers || '' },
-      Booking_Status__c: { string: bookingData.status || 'Confirmed' }
+      CreatedDate: Date.now(),
+      Booking_Reference__c: bookingData.bookingReference || '',
+      Passenger_Name__c: bookingData.passengerName || '',
+      Passenger_Email__c: bookingData.passengerEmail || '',
+      Flight_Number__c: bookingData.flightNumber || '',
+      Origin__c: bookingData.origin || '',
+      Destination__c: bookingData.destination || '',
+      Departure_Date__c: bookingData.departureDate || '',
+      Cabin_Class__c: bookingData.cabinClass || '',
+      Total_Amount__c: bookingData.totalAmount || 0,
+      Seat_Numbers__c: bookingData.seatNumbers || '',
+      Booking_Status__c: bookingData.status || 'Confirmed'
     };
 
     try {
+      console.log('[SF PubSub] Publishing booking event:', JSON.stringify(payload));
       const result = await this.client.publish(eventTopic, payload);
       console.log('[SF PubSub] Booking event published:', {
         replayId: result.replayId,
@@ -94,6 +96,7 @@ class SalesforcePubSubService {
       return result;
     } catch (error) {
       console.error('[SF PubSub] Failed to publish booking event:', error.message);
+      console.error('[SF PubSub] Full error:', error);
       throw error;
     }
   }
@@ -110,19 +113,20 @@ class SalesforcePubSubService {
     const eventTopic = process.env.SF_SEARCH_EVENT_TOPIC || '/event/Flight_Search__e';
 
     const payload = {
-      CreatedDate: new Date().getTime(),
-      Session_Id__c: { string: searchData.sessionId },
-      Origin__c: { string: searchData.origin },
-      Destination__c: { string: searchData.destination },
-      Departure_Date__c: { string: searchData.departureDate },
-      Return_Date__c: { string: searchData.returnDate || '' },
-      Passengers__c: { int: searchData.passengers },
-      Trip_Type__c: { string: searchData.tripType },
-      Cabin_Class__c: { string: searchData.cabinClass },
-      User_Email__c: { string: searchData.userEmail || '' }
+      CreatedDate: Date.now(),
+      Session_Id__c: searchData.sessionId || '',
+      Origin__c: searchData.origin || '',
+      Destination__c: searchData.destination || '',
+      Departure_Date__c: searchData.departureDate || '',
+      Return_Date__c: searchData.returnDate || '',
+      Passengers__c: searchData.passengers || 1,
+      Trip_Type__c: searchData.tripType || '',
+      Cabin_Class__c: searchData.cabinClass || '',
+      User_Email__c: searchData.userEmail || ''
     };
 
     try {
+      console.log('[SF PubSub] Publishing search event:', JSON.stringify(payload));
       const result = await this.client.publish(eventTopic, payload);
       console.log('[SF PubSub] Search event published:', {
         replayId: result.replayId,
@@ -147,16 +151,17 @@ class SalesforcePubSubService {
     const eventTopic = '/event/Abandoned_Cart__e';
 
     const payload = {
-      CreatedDate: new Date().getTime(),
-      Session_Id__c: { string: cartData.sessionId },
-      User_Email__c: { string: cartData.userEmail },
-      Flight_Details__c: { string: JSON.stringify(cartData.flightDetails) },
-      Cart_Total__c: { double: cartData.cartTotal },
-      Time_On_Page__c: { int: cartData.timeOnPage },
-      Page_URL__c: { string: cartData.pageUrl || '' }
+      CreatedDate: Date.now(),
+      Session_Id__c: cartData.sessionId || '',
+      User_Email__c: cartData.userEmail || '',
+      Flight_Details__c: JSON.stringify(cartData.flightDetails || {}),
+      Cart_Total__c: cartData.cartTotal || 0,
+      Time_On_Page__c: cartData.timeOnPage || 0,
+      Page_URL__c: cartData.pageUrl || ''
     };
 
     try {
+      console.log('[SF PubSub] Publishing abandoned cart event:', JSON.stringify(payload));
       const result = await this.client.publish(eventTopic, payload);
       console.log('[SF PubSub] Abandoned cart event published:', {
         replayId: result.replayId,
