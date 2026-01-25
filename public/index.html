@@ -11,8 +11,26 @@
     <title>American Airlines - Book flights</title>
 
     <!-- Salesforce Interactions SDK (Data Cloud / Personalization) -->
-    <!-- Sitemap loads automatically from Personalization configuration -->
     <script src="https://cdn.c360a.salesforce.com/beacon/c360a/d0d652ae-8c12-4826-801a-05e6f178b317/scripts/c360a.min.js"></script>
+    <script>
+      // Initialize the SDK after it loads
+      // Sitemap is loaded automatically from Personalization configuration
+      (function() {
+        if (typeof SalesforceInteractions !== 'undefined') {
+          SalesforceInteractions.init({
+            cookieDomain: window.location.hostname,
+            consents: [{
+              purpose: SalesforceInteractions.ConsentPurpose?.Personalization || 'Personalization',
+              status: SalesforceInteractions.ConsentStatus?.OptIn || 'OptIn'
+            }]
+          }).then(function() {
+            console.log('✅ Salesforce Interactions SDK initialized');
+          }).catch(function(err) {
+            console.warn('⚠️ SDK init error:', err);
+          });
+        }
+      })();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
