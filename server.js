@@ -14,17 +14,7 @@ const eventLogger = require('./services/eventLogger');
 
 const app = express();
 
-// Admin API key for control panel (set via environment variable)
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || 'changeme';
-
-// Simple auth middleware for admin routes
-const adminAuth = (req, res, next) => {
-  const apiKey = req.headers['x-admin-key'] || req.query.key;
-  if (apiKey !== ADMIN_API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized - Invalid admin key' });
-  }
-  next();
-};
+// No authentication required for admin panel
 
 // Middleware
 app.use(express.json());
@@ -125,13 +115,6 @@ app.post('/api/events/booking', async (req, res) => {
       console.error('Salesforce publish error:', sfError.message);
     }
 
-    // Also publish to Kafka (for worker processing if needed)
-    try {
-      await kafkaService.publish(TOPICS.FLIGHT_BOOKINGS, bookingData, bookingData.bookingReference);
-    } catch (kafkaError) {
-      console.error('Kafka publish error:', kafkaError.message);
-    }
-
     res.json({
       success: true,
       message: 'Booking event published',
@@ -222,7 +205,7 @@ app.post('/api/events/user', async (req, res) => {
  * Get Salesforce PubSub service status
  * GET /api/admin/status
  */
-app.get('/api/admin/status', adminAuth, (req, res) => {
+app.get('/api/admin/status', (req, res) => {
   res.json({
     service: 'salesforce-pubsub',
     ...salesforcePubSub.getStatus(),
@@ -236,7 +219,7 @@ app.get('/api/admin/status', adminAuth, (req, res) => {
  * Enable Salesforce PubSub service
  * POST /api/admin/enable
  */
-app.post('/api/admin/enable', adminAuth, (req, res) => {
+app.post('/api/admin/enable', (req, res) => {
   const result = salesforcePubSub.enable();
   res.json({
     message: 'Salesforce PubSub service ENABLED',
@@ -248,7 +231,7 @@ app.post('/api/admin/enable', adminAuth, (req, res) => {
  * Disable Salesforce PubSub service
  * POST /api/admin/disable
  */
-app.post('/api/admin/disable', adminAuth, (req, res) => {
+app.post('/api/admin/disable', (req, res) => {
   const result = salesforcePubSub.disable();
   res.json({
     message: 'Salesforce PubSub service DISABLED',
@@ -260,7 +243,7 @@ app.post('/api/admin/disable', adminAuth, (req, res) => {
  * Get event log statistics
  * GET /api/admin/events/stats
  */
-app.get('/api/admin/events/stats', adminAuth, (req, res) => {
+app.get('/api/admin/events/stats', (req, res) => {
   res.json(eventLogger.getStats());
 });
 
@@ -268,7 +251,7 @@ app.get('/api/admin/events/stats', adminAuth, (req, res) => {
  * Get event logs
  * GET /api/admin/events
  */
-app.get('/api/admin/events', adminAuth, (req, res) => {
+app.get('/api/admin/events', (req, res) => {
   const options = {
     status: req.query.status,
     type: req.query.type,
@@ -281,7 +264,7 @@ app.get('/api/admin/events', adminAuth, (req, res) => {
  * Get single event by ID
  * GET /api/admin/events/:id
  */
-app.get('/api/admin/events/:id', adminAuth, (req, res) => {
+app.get('/api/admin/events/:id', (req, res) => {
   const event = eventLogger.getEvent(req.params.id);
   if (!event) {
     return res.status(404).json({ error: 'Event not found' });
@@ -293,7 +276,7 @@ app.get('/api/admin/events/:id', adminAuth, (req, res) => {
  * Clear event logs
  * POST /api/admin/events/clear
  */
-app.post('/api/admin/events/clear', adminAuth, (req, res) => {
+app.post('/api/admin/events/clear', (req, res) => {
   const result = eventLogger.clear();
   res.json({ message: 'Event logs cleared', ...result });
 });
@@ -361,12 +344,7 @@ function getAdminDashboardHtml() {
   <div class="container">
     <h1>⚡ Salesforce Event Monitor</h1>
 
-    <div class="auth-form" id="authForm">
-      <input type="password" id="apiKey" placeholder="Enter Admin API Key">
-      <button onclick="authenticate()">Connect</button>
-    </div>
-
-    <div id="dashboard" class="hidden">
+    <div id="dashboard">
       <div class="controls">
         <span class="status-badge" id="serviceStatus">-</span>
         <button class="btn-enable" onclick="enableService()">Enable Service</button>
@@ -422,30 +400,13 @@ function getAdminDashboardHtml() {
   </div>
 
   <script>
-    let apiKey = localStorage.getItem('adminApiKey') || '';
     let autoRefreshInterval = null;
 
-    if (apiKey) {
-      document.getElementById('apiKey').value = apiKey;
-      authenticate();
-    }
-
-    function authenticate() {
-      apiKey = document.getElementById('apiKey').value;
-      localStorage.setItem('adminApiKey', apiKey);
-      document.getElementById('authForm').classList.add('hidden');
-      document.getElementById('dashboard').classList.remove('hidden');
-      refresh();
-    }
+    // Auto-load on page ready
+    document.addEventListener('DOMContentLoaded', refresh);
 
     async function fetchApi(endpoint, method = 'GET') {
-      const res = await fetch('/api/admin/' + endpoint + '?key=' + encodeURIComponent(apiKey), { method });
-      if (res.status === 401) {
-        alert('Invalid API key');
-        localStorage.removeItem('adminApiKey');
-        location.reload();
-        return null;
-      }
+      const res = await fetch('/api/admin/' + endpoint, { method });
       return res.json();
     }
 
