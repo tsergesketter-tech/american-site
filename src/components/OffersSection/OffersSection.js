@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const OffersSection = () => {
-  // Placeholder offers - these will be replaced with Marketing Cloud Personalization recommendations
-  const offers = [
+  const [isPersonalized, setIsPersonalized] = useState(false);
+
+  // Fallback offers - displayed until Personalization injects content
+  const fallbackOffers = [
     {
       id: 1,
       title: 'Earn up to 90,000 bonus miles',
@@ -30,71 +32,93 @@ const OffersSection = () => {
     }
   ];
 
+  // Check if Personalization has injected content
+  useEffect(() => {
+    const checkPersonalization = () => {
+      const contentZone = document.getElementById('sfdcep-offers-zone');
+      if (contentZone && contentZone.querySelector('.sfdcep-destinations')) {
+        setIsPersonalized(true);
+      }
+    };
+
+    // Check immediately and observe for changes
+    checkPersonalization();
+
+    const observer = new MutationObserver(checkPersonalization);
+    const targetNode = document.getElementById('sfdcep-offers-zone');
+    if (targetNode) {
+      observer.observe(targetNode, { childList: true, subtree: true });
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section className="bg-gray-50 py-16">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Section Header */}
-        <h2 className="text-3xl md:text-4xl font-light text-aa-blue mb-8">
-          Today's offers
-        </h2>
-
-        {/* Offers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {offers.map((offer) => (
-            <div
-              key={offer.id}
-              className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow"
-            >
-              {/* Offer Image */}
-              <div className="h-56 overflow-hidden">
-                <img
-                  src={offer.image}
-                  alt={offer.title}
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-
-              {/* Offer Content */}
-              <div className="p-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">
-                  {offer.title}
-                </h3>
-                <p className="text-gray-600 mb-4 leading-relaxed">
-                  {offer.description}
-                </p>
-{offer.linkUrl.startsWith('/') ? (
-                  <Link
-                    to={offer.linkUrl}
-                    className="text-aa-light-blue hover:underline font-medium flex items-center gap-1"
-                  >
-                    {offer.linkText}
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </Link>
-                ) : (
-                  <a
-                    href={offer.linkUrl}
-                    className="text-aa-light-blue hover:underline font-medium flex items-center gap-1"
-                  >
-                    {offer.linkText}
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Personalization Note (will be removed later) */}
-        <div className="mt-8 p-4 bg-blue-50 border-l-4 border-aa-light-blue rounded">
-          <p className="text-sm text-gray-700">
-            <span className="font-semibold text-aa-blue">Marketing Cloud Integration Point:</span> This section will be populated with personalized recommendations from Salesforce Marketing Cloud Personalization based on user behavior, preferences, and journey stage.
-          </p>
-        </div>
+    <section className="bg-gray-50 py-16 offers-section" data-content-zone="offers">
+      {/* Salesforce Personalization Content Zone - content injected here */}
+      <div id="sfdcep-offers-zone" className="sfdcep-content-zone">
+        {/* Personalization will replace this div's contents */}
       </div>
+
+      {/* Fallback content - hidden when personalization is active */}
+      {!isPersonalized && (
+        <div className="max-w-7xl mx-auto px-4 fallback-offers">
+          {/* Section Header */}
+          <h2 className="text-3xl md:text-4xl font-light text-aa-blue mb-8">
+            Today's offers
+          </h2>
+
+          {/* Offers Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {fallbackOffers.map((offer) => (
+              <div
+                key={offer.id}
+                className="bg-white rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow"
+              >
+                {/* Offer Image */}
+                <div className="h-56 overflow-hidden">
+                  <img
+                    src={offer.image}
+                    alt={offer.title}
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+
+                {/* Offer Content */}
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-3">
+                    {offer.title}
+                  </h3>
+                  <p className="text-gray-600 mb-4 leading-relaxed">
+                    {offer.description}
+                  </p>
+                  {offer.linkUrl.startsWith('/') ? (
+                    <Link
+                      to={offer.linkUrl}
+                      className="text-aa-light-blue hover:underline font-medium flex items-center gap-1"
+                    >
+                      {offer.linkText}
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </Link>
+                  ) : (
+                    <a
+                      href={offer.linkUrl}
+                      className="text-aa-light-blue hover:underline font-medium flex items-center gap-1"
+                    >
+                      {offer.linkText}
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 };
