@@ -13,8 +13,18 @@ const Confirmation = () => {
   const [bookingReference] = useState(() => `AA${Math.random().toString(36).substring(2, 8).toUpperCase()}`);
 
   useEffect(() => {
+    // Guard: only send once per booking reference
+    const sentKey = `booking_sent_${bookingReference}`;
+    if (sessionStorage.getItem(sentKey)) {
+      console.log('[Confirmation] Event already sent for this booking, skipping');
+      return;
+    }
+
     // Track purchase event with Salesforce Marketing Cloud
     if (selectedFlights.outbound && passengers.length > 0) {
+      // Mark as sent immediately to prevent duplicates
+      sessionStorage.setItem(sentKey, 'true');
+
       const total = selectedFlights.outbound.price + (selectedSeats.outbound?.length > 0 ? 35 : 0);
 
       // Track with Marketing Cloud
@@ -34,7 +44,7 @@ const Confirmation = () => {
         }]
       });
 
-      // Send booking event to Kafka -> Salesforce Platform Events
+      // Send booking event to Salesforce Platform Events
       const sendBookingEvent = async () => {
         try {
           const result = await trackBooking({
