@@ -282,6 +282,95 @@ app.post('/api/admin/events/clear', (req, res) => {
 });
 
 /**
+ * Generate synthetic bookings
+ * POST /api/admin/generate-bookings
+ */
+app.post('/api/admin/generate-bookings', async (req, res) => {
+  const count = parseInt(req.query.count) || 500;
+
+  // Sample data for generating realistic bookings
+  const firstNames = ['James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth', 'David', 'Susan', 'Richard', 'Jessica', 'Joseph', 'Sarah', 'Thomas', 'Karen', 'Charles', 'Nancy'];
+  const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin'];
+  const airports = ['DFW', 'LAX', 'JFK', 'ORD', 'MIA', 'SFO', 'SEA', 'BOS', 'ATL', 'DEN', 'PHX', 'LAS', 'MCO', 'CLT', 'EWR'];
+  const cabins = ['economy', 'premium_economy', 'business', 'first'];
+  const domains = ['gmail.com', 'yahoo.com', 'outlook.com', 'icloud.com', 'hotmail.com'];
+
+  const generateBooking = (index) => {
+    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+    const origin = airports[Math.floor(Math.random() * airports.length)];
+    let destination = airports[Math.floor(Math.random() * airports.length)];
+    while (destination === origin) {
+      destination = airports[Math.floor(Math.random() * airports.length)];
+    }
+    const cabin = cabins[Math.floor(Math.random() * cabins.length)];
+    const domain = domains[Math.floor(Math.random() * domains.length)];
+    const basePrice = cabin === 'first' ? 1500 : cabin === 'business' ? 800 : cabin === 'premium_economy' ? 400 : 200;
+    const price = basePrice + Math.floor(Math.random() * 500);
+
+    // Generate future date (1-90 days from now)
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + Math.floor(Math.random() * 90) + 1);
+
+    return {
+      bookingReference: `AA${Date.now().toString(36).toUpperCase()}${index.toString(36).toUpperCase()}`,
+      firstName,
+      lastName,
+      email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${Math.floor(Math.random() * 100)}@${domain}`,
+      flightNumber: `AA${Math.floor(Math.random() * 9000) + 1000}`,
+      origin,
+      destination,
+      departureDate: futureDate.toISOString().split('T')[0],
+      cabinClass: cabin,
+      totalAmount: price,
+      seatNumbers: `${Math.floor(Math.random() * 35) + 1}${['A', 'B', 'C', 'D', 'E', 'F'][Math.floor(Math.random() * 6)]}`,
+      status: 'Confirmed'
+    };
+  };
+
+  // Send progress updates via Server-Sent Events would be ideal, but for simplicity
+  // we'll batch and return results
+  const results = { total: count, success: 0, failed: 0, errors: [] };
+
+  // Process in batches of 10 to avoid overwhelming Salesforce
+  const batchSize = 10;
+  const delayBetweenBatches = 500; // ms
+
+  for (let i = 0; i < count; i += batchSize) {
+    const batch = [];
+    for (let j = i; j < Math.min(i + batchSize, count); j++) {
+      batch.push(generateBooking(j));
+    }
+
+    // Send batch in parallel
+    const batchResults = await Promise.allSettled(
+      batch.map(booking => salesforcePubSub.publishBookingEvent(booking))
+    );
+
+    batchResults.forEach((result, idx) => {
+      if (result.status === 'fulfilled' && result.value?.success) {
+        results.success++;
+      } else {
+        results.failed++;
+        if (results.errors.length < 10) {
+          results.errors.push(result.reason?.message || result.value?.error || 'Unknown error');
+        }
+      }
+    });
+
+    // Small delay between batches
+    if (i + batchSize < count) {
+      await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+    }
+  }
+
+  res.json({
+    message: `Generated ${results.success} of ${count} synthetic bookings`,
+    ...results
+  });
+});
+
+/**
  * Admin Dashboard UI
  * GET /admin
  */
@@ -317,6 +406,8 @@ function getAdminDashboardHtml() {
     .btn-disable { background: #ff4757; color: #fff; }
     .btn-refresh { background: #00d4ff; color: #000; }
     .btn-clear { background: #666; color: #fff; }
+    .btn-generate { background: #9b59b6; color: #fff; }
+    .btn-generate:disabled { background: #5a3d6a; cursor: not-allowed; }
     .status-badge { display: inline-block; padding: 5px 15px; border-radius: 20px; font-weight: bold; }
     .status-enabled { background: #00ff88; color: #000; }
     .status-disabled { background: #ff4757; color: #fff; }
@@ -351,6 +442,7 @@ function getAdminDashboardHtml() {
         <button class="btn-disable" onclick="disableService()">Disable Service</button>
         <button class="btn-refresh" onclick="refresh()">↻ Refresh</button>
         <button class="btn-clear" onclick="clearLogs()">Clear Logs</button>
+        <button class="btn-generate" id="btnGenerate" onclick="generateBookings()">🚀 Generate 500 Bookings</button>
         <div class="auto-refresh">
           <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
           <label for="autoRefresh">Auto-refresh (5s)</label>
@@ -475,6 +567,28 @@ function getAdminDashboardHtml() {
       if (confirm('Clear all event logs?')) {
         await fetchApi('events/clear', 'POST');
         refresh();
+      }
+    }
+
+    async function generateBookings() {
+      const count = prompt('How many synthetic bookings to generate?', '500');
+      if (!count) return;
+
+      const btn = document.getElementById('btnGenerate');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '⏳ Generating...';
+
+      try {
+        const res = await fetch('/api/admin/generate-bookings?count=' + encodeURIComponent(count), { method: 'POST' });
+        const result = await res.json();
+        alert('Generated ' + result.success + ' of ' + result.total + ' bookings\\n\\nFailed: ' + result.failed + (result.errors.length ? '\\n\\nErrors: ' + result.errors.slice(0, 3).join(', ') : ''));
+        refresh();
+      } catch (err) {
+        alert('Error generating bookings: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
       }
     }
 
