@@ -9,16 +9,23 @@ const FlightCard = ({ flight }) => {
   const navigate = useNavigate();
 
   const handleSelectFlight = (cabin) => {
+    console.log('Flight selected:', flight.flightNumber, cabin);
+
     const selectedFlight = {
       ...flight,
       selectedCabin: cabin,
       price: cabin === 'main' ? flight.mainPrice : flight.premiumPrice
     };
 
-    // Track add to cart with Salesforce
-    trackAddToCart(flight, cabin);
+    // Track add to cart with Salesforce (don't let tracking errors block navigation)
+    try {
+      trackAddToCart(flight, cabin);
+    } catch (error) {
+      console.warn('Tracking error (non-blocking):', error);
+    }
 
     selectFlight('outbound', selectedFlight);
+    console.log('Navigating to seat selection...');
     navigate('/flights/seats');
   };
 
