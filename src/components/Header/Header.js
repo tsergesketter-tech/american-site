@@ -1,5 +1,12 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
+
+const NAV_ITEMS = [
+  { label: 'Plan travel' },
+  { label: 'Travel information' },
+  { label: 'AAdvantage®' },
+  { label: 'Promotions', to: '/promotions' },
+];
 
 const Header = () => {
   const [showHolidayBanner, setShowHolidayBanner] = useState(true);
@@ -11,17 +18,22 @@ const Header = () => {
       {showDisclaimer && (
         <div className="bg-aa-blue text-white border-b border-blue-800">
           <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <div className="flex items-center gap-3 min-w-0">
+              <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
-              <p className="text-sm">
-                <span className="font-semibold">Salesforce Marketing Cloud Demo Site</span> - This is not the official American Airlines website. This site is for demonstration purposes only.
+              <p className="text-sm truncate">
+                <span className="font-semibold">Salesforce Marketing Cloud Demo Site</span>
+                <span className="hidden lg:inline"> · Not the official American Airlines website.</span>
               </p>
+            </div>
+            <div className="flex items-center gap-5 text-sm ml-auto pl-4 whitespace-nowrap">
+              <Link to="/irop-demo" className="text-white/80 hover:text-white">IROP demo</Link>
+              <a href="/admin" className="text-white/80 hover:text-white">Admin</a>
             </div>
             <button
               onClick={() => setShowDisclaimer(false)}
-              className="text-white hover:text-gray-200 ml-4"
+              className="text-white/80 hover:text-white ml-5"
               aria-label="Close disclaimer"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -77,71 +89,62 @@ const Header = () => {
       {/* Main Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between py-4">
-            {/* Logo and Main Nav */}
-            <div className="flex items-center gap-8">
-              {/* Logo */}
-              <Link to="/" className="flex items-center gap-3 cursor-pointer">
+          <div className="flex items-center justify-between gap-6 h-[72px]">
+            <div className="flex items-center gap-10 min-w-0">
+              <Link to="/" className="flex items-center gap-3 flex-shrink-0">
                 <img
                   src="/logos/logo-american-short-header.png"
                   alt="American Airlines"
-                  className="h-10"
+                  className="h-9"
                 />
                 <img
                   src="/logos/Oneworld_logo.svg.png"
                   alt="oneworld alliance"
-                  className="h-8"
+                  className="h-7 hidden lg:block"
                 />
               </Link>
 
-              {/* Main Navigation */}
-              <nav className="hidden md:flex items-center gap-6">
-                <a href="#" className="text-gray-700 hover:text-aa-light-blue font-medium">
-                  Plan travel
-                </a>
-                <a href="#" className="text-gray-700 hover:text-aa-light-blue font-medium">
-                  Travel information
-                </a>
-                <a href="#" className="text-gray-700 hover:text-aa-light-blue font-medium">
-                  AAdvantage®
-                </a>
-                <a href="/admin" className="text-gray-500 hover:text-aa-light-blue font-medium text-sm flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Admin
-                </a>
+              <nav className="hidden md:flex items-center gap-7 whitespace-nowrap">
+                {NAV_ITEMS.map((item) =>
+                  item.to ? (
+                    <NavLink
+                      key={item.label}
+                      to={item.to}
+                      className={({ isActive }) =>
+                        `relative py-6 font-medium transition-colors ${
+                          isActive ? 'text-aa-blue' : 'text-gray-700 hover:text-aa-light-blue'
+                        }`
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          {item.label}
+                          {isActive && <span className="absolute left-0 right-0 bottom-0 h-[3px] bg-aa-red rounded-t" />}
+                        </>
+                      )}
+                    </NavLink>
+                  ) : (
+                    <a key={item.label} href="#" className="py-6 text-gray-700 hover:text-aa-light-blue font-medium">
+                      {item.label}
+                    </a>
+                  )
+                )}
               </nav>
             </div>
 
-            {/* Right Side Actions */}
-            <div className="flex items-center gap-4">
-              {/* Language Selector */}
-              <div className="hidden md:flex items-center gap-1 text-sm">
-                <span className="text-2xl">🇺🇸</span>
-                <select className="border-none bg-transparent text-gray-700 cursor-pointer">
-                  <option>English</option>
-                </select>
-              </div>
-
-              {/* Search */}
-              <div className="hidden md:flex items-center bg-gray-100 rounded px-3 py-2 gap-2">
-                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <button
+                className="hidden md:flex w-10 h-10 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100 hover:text-aa-blue transition"
+                aria-label="Search AA.com"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <input
-                  type="text"
-                  placeholder="Search AA.com®"
-                  className="bg-transparent border-none outline-none text-sm w-40"
-                />
-              </div>
-
-              {/* Auth Buttons */}
-              <button className="bg-aa-light-blue text-white px-6 py-2 rounded hover:bg-blue-600 transition">
+              </button>
+              <button className="whitespace-nowrap bg-aa-light-blue text-white px-5 py-2 rounded hover:bg-blue-700 transition">
                 Log in
               </button>
-              <button className="border-2 border-aa-light-blue text-aa-light-blue px-6 py-2 rounded hover:bg-aa-light-blue hover:text-white transition">
+              <button className="hidden sm:block whitespace-nowrap border-2 border-aa-light-blue text-aa-light-blue px-5 py-1.5 rounded hover:bg-aa-light-blue hover:text-white transition">
                 Join
               </button>
             </div>
